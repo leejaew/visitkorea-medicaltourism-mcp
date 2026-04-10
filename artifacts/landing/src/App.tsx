@@ -7,17 +7,10 @@ import {
   CollapsibleTrigger,
 } from "./components/ui/collapsible";
 
-declare const __REPLIT_DOMAINS__: string;
-
 function getDomainInfo(): { host: string; isProd: boolean } {
-  const domains = __REPLIT_DOMAINS__;
-  if (domains) {
-    const list = domains.split(",").map((d) => d.trim()).filter(Boolean);
-    const prod = list.find((d) => d.endsWith(".replit.app"));
-    if (prod) return { host: prod, isProd: true };
-    return { host: list[0] ?? window.location.hostname, isProd: false };
-  }
-  return { host: window.location.hostname, isProd: false };
+  const host = window.location.hostname;
+  const isProd = host.endsWith(".replit.app");
+  return { host, isProd };
 }
 
 const TOOLS = [
