@@ -224,8 +224,7 @@ const { host: publicHost, isProd } = getDomainInfo();
 const CONNECTOR_JSON = `{
   "mcpServers": {
     "visitkorea-medicaltourism": {
-      "url": "https://${publicHost}/mcp",
-      "type": "streamable-http"
+      "url": "https://${publicHost}/mcp"
     }
   }
 }`;
@@ -282,9 +281,8 @@ export default function App() {
           <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-5 py-4">
             <p className="text-sm font-semibold text-blue-800 mb-2">Connecting from Manus AI</p>
             <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-              <li>Open <strong>Settings → MCP Servers → Add Custom Server</strong> in Manus AI.</li>
-              <li>Set <strong>Transport Type</strong> to <code className="bg-blue-100 px-1 py-0.5 rounded font-mono text-xs">HTTP</code> <span className="text-blue-500 text-xs">(Streamable HTTP)</span>.</li>
-              <li>Paste the URL below into the <strong>Server URL</strong> field.</li>
+              <li>Open <strong>Settings → Connectors → Add Connectors → Custom MCP</strong> in Manus AI.</li>
+              <li>Click <strong>Import by JSON</strong> and paste the connector JSON below, or enter the URL directly.</li>
             </ol>
             <div className="mt-3 flex items-center gap-2 rounded-lg bg-blue-100 border border-blue-200 px-3 py-2">
               <code className="text-xs font-mono text-blue-900 flex-1 break-all">

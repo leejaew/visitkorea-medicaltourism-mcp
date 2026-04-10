@@ -57,8 +57,7 @@ Paste this into your AI agent's custom connector settings (Claude Desktop, Manus
 {
   "mcpServers": {
     "visitkorea-medicaltourism": {
-      "url": "https://<your-replit-url>/mcp",
-      "type": "streamable-http"
+      "url": "https://<your-replit-url>/mcp"
     }
   }
 }
@@ -66,7 +65,7 @@ Paste this into your AI agent's custom connector settings (Claude Desktop, Manus
 
 Replace the URL with your own deployed Replit project URL.
 
-**Manus AI:** When adding a custom MCP server in Manus AI, select **HTTP** (Streamable HTTP) as the transport type and set the Server URL to `https://<your-replit-url>/mcp`.
+**Manus AI:** Go to **Settings → Connectors → Add Connectors → Custom MCP**, then click **Import by JSON** and paste the JSON above (without a `type` field — Manus infers Streamable HTTP from the URL automatically).
 
 ## Tool Reference
 
