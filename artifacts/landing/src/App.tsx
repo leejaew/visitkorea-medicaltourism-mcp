@@ -7,10 +7,20 @@ import {
   CollapsibleTrigger,
 } from "./components/ui/collapsible";
 
+declare const __REPLIT_DOMAINS__: string;
+
 function getDomainInfo(): { host: string; isProd: boolean } {
-  const host = window.location.hostname;
-  const isProd = host.endsWith(".replit.app");
-  return { host, isProd };
+  // If the page is actually being served from a .replit.app domain, use it
+  const runtimeHost = window.location.hostname;
+  if (runtimeHost.endsWith(".replit.app")) {
+    return { host: runtimeHost, isProd: true };
+  }
+  // Otherwise fall back to the build-time domain list (prefers prod over dev)
+  const domains = (typeof __REPLIT_DOMAINS__ !== "undefined" ? __REPLIT_DOMAINS__ : "")
+    .split(",").map((d) => d.trim()).filter(Boolean);
+  const prod = domains.find((d) => d.endsWith(".replit.app"));
+  if (prod) return { host: prod, isProd: true };
+  return { host: domains[0] ?? runtimeHost, isProd: false };
 }
 
 const TOOLS = [
