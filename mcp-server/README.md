@@ -1,4 +1,4 @@
-# visitkorea-medicaltourism-mcp
+# VisitKorea Medical Tourism MCP Server
 
 ![Python](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
 ![MCP Transport](https://img.shields.io/badge/MCP-Streamable_HTTP-8B5CF6)
