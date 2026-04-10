@@ -23,6 +23,7 @@ mcp = FastMCP(
     "visitkorea-medicaltourism",
     host="0.0.0.0",
     port=port,
+    stateless_http=True,
 )
 
 mcp.tool()(get_ldong_code)

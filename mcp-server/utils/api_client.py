@@ -1,4 +1,5 @@
 import os
+import urllib.parse
 import requests
 from typing import Any, Optional
 
@@ -20,6 +21,12 @@ def _get_fixed_params() -> dict:
         raise EnvironmentError(
             "VISITKOREA_API_KEY is not set. Please add it to Replit Secrets."
         )
+    # data.go.kr issues two key variants: an "Encoding key" (already URL-encoded)
+    # and a "Decoding key" (raw). The requests library always URL-encodes params,
+    # so if the stored key is the Encoding key it would be double-encoded → 401.
+    # urllib.parse.unquote() normalises either variant to the raw value so that
+    # requests encodes it exactly once.
+    api_key = urllib.parse.unquote(api_key)
     return {
         "MobileOS": "ETC",
         "MobileApp": "VisitKoreaMedicalMCP",
