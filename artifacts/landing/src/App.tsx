@@ -168,21 +168,37 @@ function CopyButton({ text }: { text: string }) {
 
 function ManusInstructions() {
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await navigator.clipboard.writeText(MANUS_INSTRUCTIONS);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="w-full flex items-center gap-2 px-5 py-3.5 bg-white border border-border rounded-xl hover:bg-muted/50 transition-colors text-left group">
-        <span
-          className="text-muted-foreground text-xs transition-transform duration-200 select-none"
-          style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+      <div className="flex items-stretch gap-2">
+        <CollapsibleTrigger className="flex-1 flex items-center gap-2 px-5 py-3.5 bg-white border border-border rounded-xl hover:bg-muted/50 transition-colors text-left">
+          <span
+            className="text-muted-foreground text-xs transition-transform duration-200 select-none"
+            style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+          >
+            ▶
+          </span>
+          <span className="text-sm font-semibold text-foreground">Manus AI Instructions</span>
+          <span className="text-xs text-muted-foreground">
+            How and when to use this MCP — click to expand
+          </span>
+        </CollapsibleTrigger>
+        <button
+          onClick={handleCopy}
+          className="text-xs px-3 py-1 rounded-xl border border-border bg-white hover:bg-muted/50 transition-colors font-mono text-muted-foreground shrink-0"
         >
-          ▶
-        </span>
-        <span className="text-sm font-semibold text-foreground">Manus AI Instructions</span>
-        <span className="text-xs text-muted-foreground">
-          How and when to use this MCP — click to expand
-        </span>
-      </CollapsibleTrigger>
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
       <CollapsibleContent>
         <div className="mt-1 rounded-xl border border-border bg-white px-6 py-6 prose prose-sm max-w-none
           prose-headings:font-semibold prose-headings:text-foreground
