@@ -277,37 +277,20 @@ export default function App() {
             Connect your AI agent
           </h3>
 
-          {/* Manus AI callout */}
-          <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-5 py-4">
-            <p className="text-sm font-semibold text-blue-800 mb-2">Connecting from Manus AI</p>
-            <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-              <li>Open <strong>Settings → Connectors → Add Connectors → Custom MCP</strong> in Manus AI.</li>
-              <li>Click <strong>Import by JSON</strong> and paste the connector JSON below, or enter the URL directly.</li>
-            </ol>
-            <div className="mt-3 flex items-center gap-2 rounded-lg bg-blue-100 border border-blue-200 px-3 py-2">
-              <code className="text-xs font-mono text-blue-900 flex-1 break-all">
-                https://{publicHost}/mcp
-              </code>
-              <CopyButton text={`https://${publicHost}/mcp`} />
-            </div>
-          </div>
-
-          {/* JSON config */}
           <div className="rounded-xl bg-slate-900 text-slate-100 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
-              <span className="text-xs font-medium text-slate-400">MCP Connector JSON (other clients)</span>
+              <span className="text-xs font-medium text-slate-400">MCP Connector JSON</span>
               <CopyButton text={CONNECTOR_JSON} />
             </div>
             <pre className="px-4 py-4 text-sm font-mono overflow-x-auto leading-relaxed">
               <code>{CONNECTOR_JSON}</code>
             </pre>
           </div>
-          {!isProd && (
-            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-              This is the development URL. Deploy the project to get your permanent{" "}
-              <code className="bg-muted px-1 py-0.5 rounded">.replit.app</code> production URL.
-            </p>
-          )}
+
+          <p className="mt-2 text-xs text-muted-foreground">
+            Paste this into your AI agent's custom connector settings. The production Streamable HTTP endpoint is at{" "}
+            <code className="text-xs bg-muted px-1 py-0.5 rounded">https://{publicHost}/mcp</code>
+          </p>
         </section>
 
         {/* Tools */}
