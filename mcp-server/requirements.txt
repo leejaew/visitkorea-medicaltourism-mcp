@@ -1,3 +1,3 @@
 mcp[cli]
-requests
+httpx
 python-dotenv

@@ -25,7 +25,21 @@ app.use(
     },
   }),
 );
-app.use(cors());
+// In production, restrict cross-origin access to *.replit.app only.
+// The /api/healthz endpoint exposes no sensitive data, but an open wildcard
+// allows any site to make credentialed cross-origin reads — unnecessarily broad.
+const corsOrigin =
+  process.env["NODE_ENV"] === "production"
+    ? (origin: string | undefined, cb: (e: Error | null, allow?: boolean) => void) => {
+        if (!origin || /^https:\/\/[^.]+\.replit\.app$/.test(origin)) {
+          cb(null, true);
+        } else {
+          cb(new Error("CORS: origin not allowed"));
+        }
+      }
+    : true;
+
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

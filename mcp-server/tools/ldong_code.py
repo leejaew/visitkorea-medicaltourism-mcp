@@ -1,8 +1,9 @@
 from typing import Optional
 from utils.api_client import call_api
+from utils.validation import validate_lang, validate_pagination
 
 
-def get_ldong_code(
+async def get_ldong_code(
     lang_div_cd: str,
     l_dong_regn_cd: Optional[str] = None,
     l_dong_list_yn: Optional[str] = None,
@@ -15,19 +16,24 @@ def get_ldong_code(
     area-based or keyword searches.
 
     Args:
-        lang_div_cd: Language code — ENG, JPN, CHS, or RUS.
+        lang_div_cd: Language code — ENG, JPN, CHS, KOR, or RUS.
         l_dong_regn_cd: Province code (e.g. '11' = Seoul). Filters by province.
         l_dong_list_yn: 'N' = return code list only (default); 'Y' = full district list.
-        num_of_rows: Results per page (default 10).
+        num_of_rows: Results per page (1–100, default 10).
         page_no: Page number (default 1).
 
     Returns:
         List of district code dicts with fields like code, name,
         lDongRegnCd, lDongRegnNm, lDongSignguCd, lDongSignguNm.
     """
+    lang_div_cd = validate_lang(lang_div_cd)
+    num_of_rows, page_no = validate_pagination(num_of_rows, page_no)
+
     params = {
         "langDivCd": lang_div_cd,
         "lDongRegnCd": l_dong_regn_cd,
         "lDongListYn": l_dong_list_yn,
     }
-    return call_api("ldongCode", params=params, num_of_rows=num_of_rows, page_no=page_no)
+    return await call_api(
+        "ldongCode", params=params, num_of_rows=num_of_rows, page_no=page_no
+    )
