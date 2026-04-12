@@ -8,10 +8,16 @@ calls that miss the cache pass through acquire().
 Default: 10 calls/minute (≈ 0.167/s), burst of 5.
 A runaway AI agent hitting uncached queries will be throttled rather than
 allowed to exhaust the 1,000 requests/day upstream quota in seconds.
+
+Fast-fail design: when the bucket is empty, acquire() raises RuntimeError
+immediately instead of sleeping. This prevents multi-second hangs that would
+cause MCP clients (e.g. Manus AI) to interpret a stalled connection as
+"degraded mode". Callers receive a clear message with the retry-after delay.
 """
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 
 
@@ -24,13 +30,18 @@ class TokenBucket:
         self._lock: asyncio.Lock | None = None
 
     def _get_lock(self) -> asyncio.Lock:
-        # Lazy init: asyncio.Lock must be created inside a running event loop.
         if self._lock is None:
             self._lock = asyncio.Lock()
         return self._lock
 
     async def acquire(self) -> None:
-        """Block until one token is available, then consume it."""
+        """
+        Consume one token, or raise RuntimeError if the bucket is empty.
+
+        Unlike a blocking design, this returns immediately in both the success
+        and the failure case — eliminating multi-second hangs that cause MCP
+        clients to mark the connection as degraded.
+        """
         async with self._get_lock():
             now = time.monotonic()
             self._tokens = min(
@@ -39,11 +50,13 @@ class TokenBucket:
             )
             self._last = now
             if self._tokens < 1:
-                wait = (1.0 - self._tokens) / self._rate
-                await asyncio.sleep(wait)
-                self._tokens = 0.0
-            else:
-                self._tokens -= 1.0
+                retry_after = math.ceil((1.0 - self._tokens) / self._rate)
+                raise RuntimeError(
+                    f"Rate limit: too many requests to upstream API. "
+                    f"Please retry after {retry_after}s. "
+                    f"(Limit: {int(self._rate * 60)} calls/min, burst {int(self._capacity)})"
+                )
+            self._tokens -= 1.0
 
 
 # Module-level singleton used by api_client.call_api()

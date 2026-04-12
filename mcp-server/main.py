@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from mcp.server.fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from tools.ldong_code import get_ldong_code
 from tools.area_based_list import get_area_based_list
@@ -34,6 +36,13 @@ mcp.tool()(get_medical_sync_list)
 mcp.tool()(get_detail_common)
 mcp.tool()(get_detail_intro)
 mcp.tool()(get_detail_medical)
+
+
+@mcp.custom_route("/healthz", methods=["GET"])
+async def healthz(_request: Request) -> JSONResponse:
+    """Lightweight liveness probe for production health checks."""
+    return JSONResponse({"status": "ok", "server": "visitkorea-medicaltourism"})
+
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http")

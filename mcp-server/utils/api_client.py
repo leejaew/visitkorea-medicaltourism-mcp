@@ -26,7 +26,7 @@ BASE_URL = "https://apis.data.go.kr/B551011/MdclTursmService"
 # One shared client — keeps TCP connections alive across all tool calls.
 # verify=True enforces TLS certificate validation on the upstream API.
 _http_client = httpx.AsyncClient(
-    timeout=httpx.Timeout(30.0, connect=5.0),
+    timeout=httpx.Timeout(15.0, connect=5.0),
     limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
     verify=True,
 )
