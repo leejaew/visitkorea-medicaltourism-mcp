@@ -70,6 +70,7 @@ const LANG_CODES = [
   { code: "ENG", lang: "English" },
   { code: "JPN", lang: "Japanese" },
   { code: "CHS", lang: "Simplified Chinese" },
+  { code: "KOR", lang: "Korean" },
   { code: "RUS", lang: "Russian" },
 ];
 
@@ -77,7 +78,7 @@ const MANUS_INSTRUCTIONS = `# Manus AI Instructions — visitkorea-medicaltouris
 
 ## What this MCP does
 
-This server exposes **8 tools** that provide structured access to Korea's official **Medical Tourism (의료관광)** dataset. The underlying data is curated by the **Korea Tourism Organization (KTO)** and published as an Open API on [data.go.kr](https://www.data.go.kr/data/15143913/openapi.do) — Korea's Public Data Portal — under the service name \`MdclTursmService\`. It covers KTO-certified medical tourism facilities across South Korea, including hospitals, specialist clinics, and wellness centres, with multilingual support for 4 international languages. Tools are called over **Streamable HTTP** (\`/mcp\`).
+This server exposes **8 tools** that provide structured access to Korea's official **Medical Tourism (의료관광)** dataset. The underlying data is curated by the **Korea Tourism Organization (KTO)** and published as an Open API on [data.go.kr](https://www.data.go.kr/data/15143913/openapi.do) — Korea's Public Data Portal — under the service name \`MdclTursmService\`. It covers KTO-certified medical tourism facilities across South Korea, including hospitals, specialist clinics, and wellness centres, with multilingual support for 5 languages (ENG, JPN, CHS, KOR, RUS). Tools are called over **Streamable HTTP** (\`/mcp\`).
 
 ## When to use this MCP
 
@@ -120,24 +121,26 @@ Always call \`get_detail_common\` first. Call \`get_detail_medical\` when the us
 
 ## Language parameter
 
-All tools accept an optional \`lang_div_cd\` parameter. Set it based on the user's language:
+All tools require a \`lang_div_cd\` parameter. Set it based on the user's language:
 
 | Code | Language |
 |------|----------|
 | \`ENG\` | English |
 | \`JPN\` | Japanese (日本語) |
 | \`CHS\` | Simplified Chinese (简体中文) |
+| \`KOR\` | Korean (한국어) |
 | \`RUS\` | Russian (Русский) |
 
-If not specified, the API returns Korean (\`KOR\`) field labels. For international users, always pass the appropriate code.
+Always pass the appropriate code. An invalid or missing value is rejected immediately with a validation error listing the accepted codes.
 
 ## Important notes
 
 - \`get_ldong_code\` is **required** before \`get_area_based_list\` unless the user already provides a known region code.
 - \`get_location_based_list\` requires WGS84 GPS coordinates (\`map_x\` = longitude, \`map_y\` = latitude) and a radius in metres (maximum 20,000 m).
-- \`get_detail_medical\` is specific to this medical tourism dataset — it returns fields such as medical specialties (\`sickDivNm\`), foreign language support (\`foreignLangCd\`), and reservation status that do not appear in other detail endpoints.
-- Results are paginated; use \`num_of_rows\` and \`page_no\` to page through large result sets.
+- \`get_detail_medical\` is specific to this medical tourism dataset — it returns fields such as medical specialties (\`mainMdlcSubjInfo\`), service language support (\`svcLangInfo\`), and online reservation availability (\`onlineRsvtPsblYn\`) that do not appear in other detail endpoints.
+- Results are paginated; use \`num_of_rows\` (max 100) and \`page_no\` to page through large result sets.
 - The dataset is refreshed once daily. All data reflects the most recent KTO-approved records from the 공공데이터포털 open API platform.
+- The server enforces a rate limit of **10 upstream calls per minute** with a burst allowance of 5. Cached responses (district codes for 24 h, all others for 5 min) bypass the limit entirely. If the limit is exceeded, the tool returns an immediate error with a retry-after time — simply wait the indicated number of seconds and retry.
 
 ## Example workflow
 
@@ -145,7 +148,7 @@ If not specified, the API returns Korean (\`KOR\`) field labels. For internation
 
 1. Call \`get_ldong_code\` with \`l_dong_regn_cd=11\` (Seoul) to confirm available district codes.
 2. Call \`get_area_based_list\` with \`l_dong_regn_cd=11\` and \`lang_div_cd=ENG\` to retrieve facilities in the Seoul region.
-3. For each result with a \`content_id\`, call \`get_detail_medical\` to check \`foreignLangCd\` for English and \`sickDivNm\` for dermatology.
+3. For each result with a \`content_id\`, call \`get_detail_medical\` to check \`svcLangInfo\` for English support and \`mainMdlcSubjInfo\` for dermatology.
 4. Also call \`get_detail_common\` to retrieve the address, phone number, and homepage URL.
 5. Return a structured list of matching facilities with name, address, phone, specialties, and language support clearly presented.
 `;
@@ -328,7 +331,7 @@ export default function App() {
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             Supported Languages
           </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {LANG_CODES.map(({ code, lang }) => (
               <div
                 key={code}
