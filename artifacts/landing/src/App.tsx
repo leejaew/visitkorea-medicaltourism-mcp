@@ -227,6 +227,7 @@ const { host: publicHost, isProd } = getDomainInfo();
 const CONNECTOR_JSON = `{
   "mcpServers": {
     "visitkorea-medicaltourism": {
+      "type": "streamableHttp",
       "url": "https://${publicHost}/mcp"
     }
   }
