@@ -9,18 +9,47 @@ import {
 
 declare const __REPLIT_DOMAINS__: string;
 
-function getDomainInfo(): { host: string; isProd: boolean } {
-  // If the page is actually being served from a .replit.app domain, use it
-  const runtimeHost = window.location.hostname;
-  if (runtimeHost.endsWith(".replit.app")) {
-    return { host: runtimeHost, isProd: true };
+function isDevelopmentHost(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname.endsWith(".replit.dev")
+  );
+}
+
+function normalizeDomain(value: string): string | null {
+  const candidate = value.trim();
+  if (!candidate) return null;
+
+  try {
+    const url = new URL(
+      candidate.includes("://") ? candidate : `https://${candidate}`,
+    );
+    return isDevelopmentHost(url.hostname) ? null : url.hostname;
+  } catch {
+    return null;
   }
-  // Otherwise fall back to the build-time domain list (prefers prod over dev)
-  const domains = (typeof __REPLIT_DOMAINS__ !== "undefined" ? __REPLIT_DOMAINS__ : "")
-    .split(",").map((d) => d.trim()).filter(Boolean);
-  const prod = domains.find((d) => d.endsWith(".replit.app"));
-  if (prod) return { host: prod, isProd: true };
-  return { host: domains[0] ?? runtimeHost, isProd: false };
+}
+
+function getProductionMcpUrl(): string | null {
+  if (!isDevelopmentHost(window.location.hostname)) {
+    return new URL("/mcp", window.location.origin).toString();
+  }
+
+  const configuredDomains = (
+    typeof __REPLIT_DOMAINS__ !== "undefined" ? __REPLIT_DOMAINS__ : ""
+  )
+    .split(",")
+    .map(normalizeDomain)
+    .filter((domain): domain is string => domain !== null);
+
+  const customDomain = configuredDomains.find(
+    (domain) => !domain.endsWith(".replit.app"),
+  );
+  const productionDomain = customDomain ?? configuredDomains[0];
+
+  return productionDomain ? `https://${productionDomain}/mcp` : null;
 }
 
 const TOOLS = [
@@ -222,16 +251,17 @@ function ManusInstructions() {
   );
 }
 
-const { host: publicHost, isProd } = getDomainInfo();
-
-const CONNECTOR_JSON = `{
+const productionMcpUrl = getProductionMcpUrl();
+const CONNECTOR_JSON = productionMcpUrl
+  ? `{
   "mcpServers": {
     "visitkorea-medicaltourism": {
       "type": "streamableHttp",
-      "url": "https://${publicHost}/mcp"
+      "url": "${productionMcpUrl}"
     }
   }
-}`;
+}`
+  : null;
 
 export default function App() {
   return (
@@ -284,16 +314,28 @@ export default function App() {
           <div className="rounded-xl bg-slate-900 text-slate-100 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
               <span className="text-xs font-medium text-slate-400">MCP Connector JSON</span>
-              <CopyButton text={CONNECTOR_JSON} />
+              {CONNECTOR_JSON && <CopyButton text={CONNECTOR_JSON} />}
             </div>
             <pre className="px-4 py-4 text-sm font-mono overflow-x-auto leading-relaxed">
-              <code>{CONNECTOR_JSON}</code>
+              <code>
+                {CONNECTOR_JSON ??
+                  "Production connector JSON is available on the published custom domain."}
+              </code>
             </pre>
           </div>
 
           <p className="mt-2 text-xs text-muted-foreground">
-            Paste this into your AI agent's custom connector settings. The production Streamable HTTP endpoint is at{" "}
-            <code className="text-xs bg-muted px-1 py-0.5 rounded">https://{publicHost}/mcp</code>
+            {productionMcpUrl ? (
+              <>
+                Paste this into your AI agent's custom connector settings. The production
+                Streamable HTTP endpoint is at{" "}
+                <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                  {productionMcpUrl}
+                </code>
+              </>
+            ) : (
+              "Open the published site to copy its production connector configuration."
+            )}
           </p>
         </section>
 
