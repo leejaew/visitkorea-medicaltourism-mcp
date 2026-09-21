@@ -49,6 +49,10 @@ Thumbs.db
 .local/
 .agents/
 .upm/
+/.replit
+/.replitignore
+/replit.md
+/artifacts/mockup-sandbox/
 
 # Attached assets (Replit-internal uploads)
 attached_assets/
