@@ -54,17 +54,11 @@ Open the **Secrets** tab in Replit and add:
 
 ### 3. Install dependencies
 
-Replit handles this automatically on first run. To install manually:
+Replit handles this automatically on first run. The root `pyproject.toml` and
+`uv.lock` are the dependency source of truth. To install manually with uv:
 
 ```bash
-pip install -r mcp-server/requirements.txt
-```
-
-**`requirements.txt`:**
-```
-mcp[cli]
-httpx
-python-dotenv
+uv sync
 ```
 
 ### 4. Run the server
@@ -90,6 +84,7 @@ Paste this into your AI agent's custom connector settings:
 {
   "mcpServers": {
     "visitkorea-medicaltourism": {
+      "type": "streamableHttp",
       "url": "https://<your-replit-url>/mcp"
     }
   }
@@ -100,7 +95,7 @@ Replace `<your-replit-url>` with your deployed Replit project domain.
 
 ### Manus AI
 
-Go to **Settings → Connectors → Add Connectors → Custom MCP**, click **Import by JSON**, and paste the JSON above. Do not add a `"type"` field — Manus AI infers Streamable HTTP from the URL automatically.
+Go to **Settings → Connectors → Add Connectors → Custom MCP**, click **Import by JSON**, and paste the JSON above.
 
 ### Claude Desktop
 
@@ -130,7 +125,7 @@ Retrieve legal administrative district (법정동) codes for province/city and d
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `lang_div_cd` | string | Optional | Language code (default `ENG`) |
+| `lang_div_cd` | string | **Required** | Language code: `ENG`, `JPN`, `CHS`, `KOR`, or `RUS` |
 | `l_dong_regn_cd` | string | Optional | Province code — e.g. `11` = Seoul. Omit to list all provinces. |
 | `l_dong_list_yn` | string | Optional | `N` = 시도/시군구 codes only (default); `Y` = full 법정동 list |
 | `num_of_rows` | int | Optional | Results per page — clamped to 1–100 (default 10) |
@@ -152,7 +147,7 @@ List medical tourism facilities filtered by administrative region.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `lang_div_cd` | string | Optional | Language code |
+| `lang_div_cd` | string | **Required** | Language code |
 | `arrange` | string | Optional | Sort order: `A`=title, `C`=modified, `D`=created, `O`/`Q`/`R`=image-only variants |
 | `l_dong_regn_cd` | string | Optional | Province code from `get_ldong_code` |
 | `l_dong_signgu_cd` | string | Optional | District code (requires `l_dong_regn_cd`) |
@@ -171,7 +166,7 @@ Find medical tourism facilities within a GPS radius. Coordinates must be within 
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `lang_div_cd` | string | Optional | Language code |
+| `lang_div_cd` | string | **Required** | Language code |
 | `map_x` | float | **Required** | Longitude in WGS84 — e.g. `126.9780` (Seoul) |
 | `map_y` | float | **Required** | Latitude in WGS84 — e.g. `37.5665` (Seoul) |
 | `radius` | int | **Required** | Search radius in metres — 1 to 20,000 |
@@ -195,7 +190,7 @@ Full-text keyword search across all medical tourism facilities.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `lang_div_cd` | string | Optional | Language code |
+| `lang_div_cd` | string | **Required** | Language code |
 | `keyword` | string | **Required** | Search term (automatically URL-encoded) |
 | `arrange` | string | Optional | Sort order (A/C/D/O/Q/R) |
 | `l_dong_regn_cd` | string | Optional | Province filter |
@@ -214,7 +209,7 @@ Retrieve the full medical tourism synchronisation list. Use for building or refr
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `lang_div_cd` | string | Optional | Language code |
+| `lang_div_cd` | string | **Required** | Language code |
 | `showflag` | string | Optional | `1` = publicly visible only; `0` = hidden only |
 | `old_content_id` | string | Optional | Last known content ID — fetch only newer records |
 | `mdfcn_dt` | string | Optional | Modified-since date in **YYYYMMDD** format |
@@ -232,7 +227,7 @@ Fetch full common detail for a specific facility: title, address, GPS, phone, ho
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `lang_div_cd` | string | Optional | Language code |
+| `lang_div_cd` | string | **Required** | Language code |
 | `content_id` | string | **Required** | Content ID returned by any list or search tool |
 | `num_of_rows` | int | Optional | Results per page (default 1) |
 | `page_no` | int | Optional | Page number (default 1) |
@@ -252,7 +247,7 @@ Fetch type-specific introductory details: opening hours, rest days, parking, cap
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `lang_div_cd` | string | Optional | Language code |
+| `lang_div_cd` | string | **Required** | Language code |
 | `content_id` | string | **Required** | Content ID |
 | `num_of_rows` | int | Optional | Results per page (default 1) |
 | `page_no` | int | Optional | Page number (default 1) |
@@ -268,7 +263,7 @@ Fetch medical-specific details: specialties, foreign languages served, reservati
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `lang_div_cd` | string | Optional | Language code |
+| `lang_div_cd` | string | **Required** | Language code |
 | `content_id` | string | **Required** | Content ID |
 | `num_of_rows` | int | Optional | Results per page (default 1) |
 | `page_no` | int | Optional | Page number (default 1) |
@@ -291,26 +286,26 @@ Fetch medical-specific details: specialties, foreign languages served, reservati
 
 ### Upstream API errors
 
-Tool functions surface data.go.kr errors as Python exceptions with descriptive messages. The raw API key is masked (`[REDACTED]`) in all error strings before they leave the process.
+Tool functions surface data.go.kr failures as client-safe typed application
+errors. The API key is never included in error messages or logs.
 
 | Upstream code | Exception type | Meaning |
 |---|---|---|
 | `00` / `0000` | — | Success; returns results |
 | `03` | — | No data; returns `[]` |
-| `10` | `ValueError` | Invalid request parameter |
-| `11` | `ValueError` | Missing required parameter |
-| `22` | `RuntimeError` | Upstream daily quota (1,000 requests/day) exceeded |
-| `30` | `PermissionError` | Service key not registered |
-| `31` | `PermissionError` | Service key expired |
-| other | `RuntimeError` | Unexpected API error with code and message |
+| `10` | `UpstreamError` | Invalid request parameter |
+| `11` | `UpstreamError` | Missing required parameter |
+| `22` | `QuotaError` | Upstream daily quota exceeded |
+| `30` | `AuthError` | Service key not registered |
+| `31` | `AuthError` | Service key expired |
+| other | `UpstreamError` | Unexpected upstream error |
 
 ### Local rate limiter
 
 The server enforces a **10 calls/minute** limit (burst of 5) on requests that reach the upstream API. Cache hits bypass the limiter entirely. When the limit is exceeded, the tool returns immediately with:
 
 ```
-Rate limit: too many requests to upstream API. Please retry after Xs.
-(Limit: 10 calls/min, burst 5)
+Rate limit exceeded. Retry after Xs. (Limit: 10 calls/min, burst 5)
 ```
 
 This is a fast-fail design — no blocking sleep — so the agent receives the retry-after guidance instantly and can back off gracefully.
@@ -321,39 +316,25 @@ This is a fast-fail design — no blocking sleep — so the agent receives the r
 visitkorea-medicaltourism-mcp/
 ├── mcp-server/
 │   ├── main.py                  # FastMCP entrypoint — Streamable HTTP, /healthz endpoint
-│   ├── requirements.txt         # mcp[cli], httpx, python-dotenv
-│   ├── README.md
-│   ├── tools/
-│   │   ├── ldong_code.py        # get_ldong_code
-│   │   ├── area_based_list.py   # get_area_based_list
-│   │   ├── location_based_list.py # get_location_based_list
-│   │   ├── search_keyword.py    # search_medical_by_keyword
-│   │   ├── sync_list.py         # get_medical_sync_list
-│   │   ├── detail_common.py     # get_detail_common
-│   │   ├── detail_intro.py      # get_detail_intro
-│   │   └── detail_mdcl_tursm.py # get_detail_medical
-│   └── utils/
-│       ├── config.py            # API key loading, FIXED_PARAMS, key masking
-│       ├── cache.py             # TTL dict cache (24h / 5min by endpoint)
-│       ├── rate_limiter.py      # Token bucket — 10/min, burst 5, fast-fail
-│       ├── api_client.py        # call_api() — wires cache, limiter, httpx, retry
-│       └── validation.py        # Input validation for all parameter types
+│   ├── tests/                   # standard-library unit and contract tests
+│   └── visitkorea_mcp/          # settings, client, cache, limiter, tools, server
 └── artifacts/
     ├── landing/                 # Developer landing page (React + Vite)
     └── api-server/              # Express proxy (CORS, /api/healthz)
 ```
 
-### `utils/` module responsibilities
+### `visitkorea_mcp/` module responsibilities
 
 Each module has a single, clearly bounded responsibility:
 
 | Module | LOC | Responsibility |
 |---|---|---|
-| `config.py` | 41 | Loads `VISITKOREA_API_KEY` at import time, normalises Encoding/Decoding variant, exposes `FIXED_PARAMS` and `mask_key()` |
-| `cache.py` | 49 | SHA-256-keyed TTL dict cache; `make_key`, `get`, `set`, `ttl_for` |
-| `rate_limiter.py` | 60 | `TokenBucket` class; module-level `limiter` singleton used by `call_api` |
-| `api_client.py` | 141 | `call_api(endpoint, params, num_of_rows, page_no)` — the only public function; handles the full request lifecycle |
-| `validation.py` | 93 | `validate_lang`, `validate_pagination`, `validate_gps`, `validate_radius`, `validate_date`, `validate_arrange`, `validate_showflag` |
+| `config.py` | — | Pure settings loader; validates environment only during server construction |
+| `cache.py` | — | Bounded SHA-256 TTL cache with defensive copies |
+| `limiter.py` | — | Per-client token bucket with typed retry-after errors |
+| `client.py` | — | KTO HTTP lifecycle, retries, response validation, and error mapping |
+| `tools.py` | — | Thin public MCP adapters and deterministic registration |
+| `server.py` | — | FastMCP factory, lifespan, client shutdown, and `/healthz` |
 
 ## Performance
 
@@ -373,6 +354,19 @@ The httpx client maintains a persistent TCP connection pool (`max_connections=10
 |---|---|---|
 | `VISITKOREA_API_KEY` | Yes | API key from data.go.kr (Encoding or Decoding variant) |
 | `PORT` | No | Port for uvicorn to listen on (default `8000`) |
+| `MCP_ALLOWED_HOSTS` | No | Comma-separated public hostnames for Streamable HTTP Host validation; `REPLIT_DOMAINS` is used automatically when available |
+| `MCP_ALLOWED_ORIGINS` | No | Optional comma-separated browser origins for Streamable HTTP Origin validation |
+
+## Development and testing
+
+Run the focused standard-library test suite from the repository root:
+
+```bash
+PYTHONPATH=mcp-server python -m unittest discover -s mcp-server/tests -p 'test_*.py'
+```
+
+The server validates configuration when `create_server()` runs, not when the
+package is imported. This keeps tooling and tests importable without a secret.
 
 ## Contributing
 
