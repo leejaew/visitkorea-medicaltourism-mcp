@@ -6,7 +6,7 @@ import asyncio
 import math
 import time
 
-from .errors import RateLimitError
+from ..errors.application import RateLimitError
 
 
 class TokenBucket:

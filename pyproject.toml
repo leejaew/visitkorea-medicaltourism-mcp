@@ -1,5 +1,5 @@
 [project]
-name = "repl-nix-workspace"
+name = "visitkorea-medical-tourism-mcp"
 version = "0.1.0"
 description = "Production-grade MCP server for Korea Medical Tourism data"
 requires-python = ">=3.11"
@@ -8,3 +8,25 @@ dependencies = [
     "httpx>=0.28.1",
     "python-dotenv>=1.2.2",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_server"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/.agents",
+    "/.cache",
+    "/.local",
+    "/.pythonlibs",
+    "/artifacts",
+    "/attached_assets",
+    "/lib",
+    "/node_modules",
+]
+
+[project.scripts]
+visitkorea-mcp = "mcp_server.main:run"

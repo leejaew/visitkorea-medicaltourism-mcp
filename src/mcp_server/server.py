@@ -1,31 +1,24 @@
-"""MCP server factory and lifecycle composition root."""
+"""FastMCP composition root; construction does not start a server."""
 
 from __future__ import annotations
 
-import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from .client import KtoClient
+from .clients.visitkorea import KtoClient
 from .config import Settings, load_settings
-from .tools import register_tools
-
-
-def _configure_logging() -> None:
-    """Prevent HTTP client request URLs from exposing query-string secrets."""
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
+from .observability.logging import configure_logging
+from .tools.registry import register_tools
 
 
 @asynccontextmanager
 async def _lifespan(
-    _server: FastMCP,
-    settings: Settings,
+    _server: FastMCP, settings: Settings
 ) -> AsyncIterator[dict[str, KtoClient]]:
     client = KtoClient(settings)
     try:
@@ -35,12 +28,11 @@ async def _lifespan(
 
 
 def create_server(settings: Settings | None = None) -> FastMCP:
-    """Construct the MCP app without starting a transport or network client."""
-    _configure_logging()
+    configure_logging()
     resolved = settings or load_settings()
 
     @asynccontextmanager
-    async def lifespan(server: FastMCP) -> AsyncIterator[dict[str, KtoClient]]:
+    async def lifespan(server: FastMCP):
         async with _lifespan(server, resolved) as context:
             yield context
 
@@ -59,14 +51,6 @@ def create_server(settings: Settings | None = None) -> FastMCP:
 
     @server.custom_route("/healthz", methods=["GET"])
     async def healthz(_request: Request) -> JSONResponse:
-        """Lightweight liveness probe for production health checks."""
-        return JSONResponse(
-            {"status": "ok", "server": "visitkorea-medicaltourism"}
-        )
+        return JSONResponse({"status": "ok", "server": "visitkorea-medicaltourism"})
 
     return server
-
-
-def run() -> None:
-    """Load configuration, construct the app, and start Streamable HTTP."""
-    create_server().run(transport="streamable-http")

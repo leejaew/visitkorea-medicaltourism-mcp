@@ -52,6 +52,8 @@ Open the **Secrets** tab in Replit and add:
 |---|---|
 | `VISITKOREA_API_KEY` | Your API key (Encoding or Decoding variant — either works) |
 
+For local development, copy the canonical root `.env.example` to `.env`.
+
 ### 3. Install dependencies
 
 Replit handles this automatically on first run. The root `pyproject.toml` and
@@ -64,7 +66,8 @@ uv sync
 ### 4. Run the server
 
 ```bash
-python mcp-server/main.py
+uv run visitkorea-mcp
+# compatibility: python mcp-server/main.py
 ```
 
 The server starts on the `PORT` environment variable (default `8000`).
@@ -314,27 +317,30 @@ This is a fast-fail design — no blocking sleep — so the agent receives the r
 
 ```
 visitkorea-medicaltourism-mcp/
-├── mcp-server/
-│   ├── main.py                  # FastMCP entrypoint — Streamable HTTP, /healthz endpoint
-│   ├── tests/                   # standard-library unit and contract tests
-│   └── visitkorea_mcp/          # settings, client, cache, limiter, tools, server
+├── src/mcp_server/               # packaged MCP application
+├── .env.example                  # canonical local environment template
+│   ├── tools/                    # validation adapters and registration
+│   ├── services/                 # plain-Python application services
+│   ├── clients/                  # upstream HTTP, cache, and limiter
+│   └── transports/               # Streamable HTTP boundary
+├── tests/                        # unit, integration, contract, and security tests
+├── mcp-server/main.py            # compatibility shim only
 └── artifacts/
     ├── landing/                 # Developer landing page (React + Vite)
     └── api-server/              # Express proxy (CORS, /api/healthz)
 ```
 
-### `visitkorea_mcp/` module responsibilities
+### `src/mcp_server/` module responsibilities
 
 Each module has a single, clearly bounded responsibility:
 
-| Module | LOC | Responsibility |
+| Module | Responsibility |
 |---|---|---|
-| `config.py` | — | Pure settings loader; validates environment only during server construction |
-| `cache.py` | — | Bounded SHA-256 TTL cache with defensive copies |
-| `limiter.py` | — | Per-client token bucket with typed retry-after errors |
-| `client.py` | — | KTO HTTP lifecycle, retries, response validation, and error mapping |
-| `tools.py` | — | Thin public MCP adapters and deterministic registration |
-| `server.py` | — | FastMCP factory, lifespan, client shutdown, and `/healthz` |
+| `config/settings.py` | Pure settings loader and host/origin policy |
+| `clients/` | KTO HTTP lifecycle, retries, cache, and rate limiting |
+| `services/medical_tourism.py` | MCP-independent application operations |
+| `tools/` | Thin adapters and deterministic registration |
+| `server.py` | FastMCP factory, lifespan, shutdown, and `/healthz` |
 
 ## Performance
 
@@ -362,7 +368,7 @@ The httpx client maintains a persistent TCP connection pool (`max_connections=10
 Run the focused standard-library test suite from the repository root:
 
 ```bash
-PYTHONPATH=mcp-server python -m unittest discover -s mcp-server/tests -p 'test_*.py'
+uv run --frozen python -m unittest discover -s tests -p 'test_*.py'
 ```
 
 The server validates configuration when `create_server()` runs, not when the

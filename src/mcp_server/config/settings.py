@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import os
 import urllib.parse
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
-
 
 DEFAULT_BASE_URL = "https://apis.data.go.kr/B551011/MdclTursmService"
 DEFAULT_ALLOWED_HOSTS = (
@@ -53,9 +52,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
     values = os.environ if environ is None else environ
     raw_key = values.get("VISITKOREA_API_KEY", "")
     if not raw_key:
-        raise EnvironmentError(
-            "VISITKOREA_API_KEY is not set. Add it to Replit Secrets."
-        )
+        raise OSError("VISITKOREA_API_KEY is not set. Add it to Replit Secrets.")
 
     raw_port = values.get("PORT", "8000")
     try:
@@ -68,14 +65,16 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
     # data.go.kr provides both URL-encoded and decoded variants.
     api_key = urllib.parse.unquote(raw_key)
     if not api_key:
-        raise EnvironmentError("VISITKOREA_API_KEY must not be empty.")
+        raise OSError("VISITKOREA_API_KEY must not be empty.")
     allowed_hosts = list(DEFAULT_ALLOWED_HOSTS)
     allowed_origins = list(DEFAULT_ALLOWED_ORIGINS)
     configured_hosts = values.get("MCP_ALLOWED_HOSTS", "")
     if not configured_hosts:
         configured_hosts = values.get("REPLIT_DOMAINS", "")
     for raw_host in configured_hosts.split(","):
-        host = raw_host.strip().removeprefix("https://").removeprefix("http://").strip("/")
+        host = (
+            raw_host.strip().removeprefix("https://").removeprefix("http://").strip("/")
+        )
         if not host:
             continue
         allowed_hosts.append(host)

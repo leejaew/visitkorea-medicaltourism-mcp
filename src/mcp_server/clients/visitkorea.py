@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from datetime import datetime, timezone
 from typing import Any
 
 import httpx
 
+from ..config.settings import Settings
+from ..errors.application import AuthError, QuotaError, TransportError, UpstreamError
 from .cache import TTLCache
-from .config import Settings
-from .errors import AuthError, QuotaError, TransportError, UpstreamError
 from .limiter import TokenBucket
 
 
@@ -56,7 +56,9 @@ class KtoClient:
             "pageNo": page_no,
         }
         if params:
-            query.update({key: value for key, value in params.items() if value is not None})
+            query.update(
+                {key: value for key, value in params.items() if value is not None}
+            )
 
         cache_key = self.cache.make_key(endpoint, query)
         hit, cached = self.cache.get(cache_key)
@@ -69,9 +71,7 @@ class KtoClient:
         self.cache.set(cache_key, items, self.cache.ttl_for(endpoint))
         return items
 
-    async def _request(
-        self, endpoint: str, query: dict[str, Any]
-    ) -> httpx.Response:
+    async def _request(self, endpoint: str, query: dict[str, Any]) -> httpx.Response:
         last_error: Exception | None = None
         for attempt in range(self.settings.max_retries):
             try:
@@ -121,8 +121,8 @@ class KtoClient:
             try:
                 date = parsedate_to_datetime(value)
                 if date.tzinfo is None:
-                    date = date.replace(tzinfo=timezone.utc)
-                seconds = max(0, int((date - datetime.now(timezone.utc)).total_seconds()))
+                    date = date.replace(tzinfo=UTC)
+                seconds = max(0, int((date - datetime.now(UTC)).total_seconds()))
             except (TypeError, ValueError, OverflowError):
                 seconds = 1
         return max(1, min(seconds, 30))
@@ -132,7 +132,9 @@ class KtoClient:
         try:
             data = response.json()
         except (ValueError, TypeError) as exc:
-            raise UpstreamError("Upstream API returned an invalid JSON response.") from exc
+            raise UpstreamError(
+                "Upstream API returned an invalid JSON response."
+            ) from exc
         if not isinstance(data, dict):
             raise UpstreamError("Upstream API returned an invalid response envelope.")
 
@@ -166,6 +168,8 @@ class KtoClient:
         items = items_wrapper.get("item") or []
         if isinstance(items, dict):
             items = [items]
-        if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+        if not isinstance(items, list) or not all(
+            isinstance(item, dict) for item in items
+        ):
             raise UpstreamError("Upstream API returned invalid item records.")
         return items

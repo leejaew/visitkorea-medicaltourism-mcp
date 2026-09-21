@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from typing import Any
 
-from .errors import InvalidRequest
+from ..errors.application import InvalidRequest
 
 VALID_LANG_CODES = {"ENG", "JPN", "CHS", "RUS", "KOR"}
 VALID_ARRANGE_CODES = {"A", "C", "D", "O", "Q", "R"}
@@ -73,9 +73,11 @@ def validate_date(date_str: str) -> str:
     if not re.fullmatch(r"\d{8}", value):
         raise InvalidRequest("Date must be in YYYYMMDD format.")
     try:
-        datetime.strptime(value, "%Y%m%d")
+        datetime.strptime(value, "%Y%m%d")  # noqa: DTZ007
     except ValueError as exc:
-        raise InvalidRequest("Date must be a real calendar date in YYYYMMDD format.") from exc
+        raise InvalidRequest(
+            "Date must be a real calendar date in YYYYMMDD format."
+        ) from exc
     return value
 
 

@@ -33,7 +33,9 @@ Python 3.11 MCP (Model Context Protocol) server wrapping the Korea Tourism Organ
 - **Transport**: Streamable HTTP at `/mcp`
 - **Port**: 8000 (routed via proxy at `/mcp`)
 - **Secret**: `VISITKOREA_API_KEY` — Encoding and Decoding variants are accepted
-- **Run**: `python /home/runner/workspace/mcp-server/main.py`
+- **Run**: `uv run visitkorea-mcp` (the legacy `mcp-server/main.py` is a shim)
+- **Package**: `src/mcp_server`
+- **Tests**: `uv run --frozen python -m unittest discover -s tests -p 'test_*.py'`
 
 ### Tools (8 total)
 - `get_ldong_code` — administrative district codes

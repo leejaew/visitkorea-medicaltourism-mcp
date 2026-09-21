@@ -1,10 +1,12 @@
-"""Compatibility launcher for the VisitKorea Medical Tourism MCP server."""
+"""Compatibility launcher; the implementation lives in the src package."""
 
-from dotenv import load_dotenv
+import sys
+from importlib import import_module
+from pathlib import Path
 
-from visitkorea_mcp.server import run
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+run = import_module("mcp_server.main").run
 
 
 if __name__ == "__main__":
-    load_dotenv()
     run()

@@ -9,7 +9,6 @@ import time
 from collections import OrderedDict
 from typing import Any
 
-
 ENDPOINT_TTL: dict[str, int] = {"ldongCode": 86_400}
 DEFAULT_TTL = 300
 
@@ -23,7 +22,9 @@ class TTLCache:
 
     @staticmethod
     def make_key(endpoint: str, params: dict[str, Any]) -> str:
-        safe_params = {key: value for key, value in params.items() if key != "serviceKey"}
+        safe_params = {
+            key: value for key, value in params.items() if key != "serviceKey"
+        }
         payload = json.dumps(
             {"endpoint": endpoint, "params": safe_params},
             sort_keys=True,
