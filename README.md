@@ -1,385 +1,370 @@
 # VisitKorea Medical Tourism MCP Server
 
-![Python](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
-![MCP Transport](https://img.shields.io/badge/MCP-Streamable_HTTP-8B5CF6)
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP-8B5CF6)
+![pnpm](https://img.shields.io/badge/pnpm-workspace-F69220?logo=pnpm&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An MCP (Model Context Protocol) server that wraps the **Korea Tourism Organization (KTO) Medical Tourism Open API** (`MdclTursmService`), exposing 8 structured tools that AI agents — including Claude and Manus AI — can call directly via Streamable HTTP.
+## Overview
 
-The underlying data is curated by the **Korea Tourism Organization (KTO)** and published as an Open API on [data.go.kr](https://www.data.go.kr/data/15143913/openapi.do) (Korea's Public Data Portal) under service ID `15143913`. It covers KTO-certified medical tourism facilities across South Korea — hospitals, specialist clinics, and wellness centres — with multilingual support for 5 international languages.
+VisitKorea Medical Tourism MCP Server exposes the Korea Tourism Organization Medical Tourism Open API as eight Model Context Protocol tools. MCP clients can search facilities by area, location, or keyword, retrieve facility details, and synchronize upstream records through Streamable HTTP.
 
-## Features
+The primary service is a Python package. The repository also contains a pnpm workspace with a React landing page, an Express health API, and shared TypeScript packages used by those applications.
 
-- **Area-based search** — list facilities by province or city/county
-- **Location-based search** — find facilities within a GPS radius (up to 20 km), using WGS84 coordinates
-- **Keyword search** — full-text search across all regions
-- **Sync list** — full dataset synchronisation list for building and maintaining local databases
-- **Detail records** — common info, introductory info (hours, parking, capacity), and medical-specific info (specialties, languages, reservation status)
-- **8 MCP tools** — one per API operation, with full parameter documentation in docstrings
-- **5 languages** — English, Japanese, Simplified Chinese, Korean, Russian
-- **TTL response cache** — district codes cached 24 h; all other responses cached 5 min (≈6× speedup on cache hits)
-- **Rate limiter** — 10 upstream calls/min, burst of 5; fast-fail design returns an immediate error when the limit is hit rather than blocking
-- **Input validation** — all parameters validated before the upstream request; GPS bounds, date format, sort codes, and language codes checked with clear error messages
-- **Health endpoint** — `GET /healthz` for production liveness probes
+The tourism data comes from the [Korea Public Data Portal](https://www.data.go.kr/data/15143913/openapi.do), service ID `15143913`.
 
-## Prerequisites
+## Key Features
 
-- Python 3.11+
-- A valid API key from [data.go.kr](https://www.data.go.kr/data/15143913/openapi.do) (service ID `15143913`)
-- Replit account (for deployment)
+- Eight MCP tools mapped to the `MdclTursmService` API
+- Area, coordinate, keyword, and synchronization queries
+- Common, introductory, and medical facility details
+- English, Japanese, Simplified Chinese, Korean, and Russian responses
+- Parameter validation before upstream requests
+- Bounded retries, connection pooling, and a process local response cache
+- Process local rate limiting for upstream requests
+- Streamable HTTP transport with liveness checks
 
-## Installation & Setup
+## Tech Stack
 
-### 1. Get an API key
+| Layer | Technology |
+| --- | --- |
+| MCP service | Python 3.11+, FastMCP from `mcp[cli]` |
+| Upstream client | HTTPX |
+| Python packaging | Hatchling, uv |
+| Landing page | React, Vite, Tailwind CSS |
+| Health API | Express 5, Pino |
+| TypeScript workspace | pnpm, TypeScript 5.9 |
+| Testing | Python `unittest` |
 
-1. Visit [https://www.data.go.kr/data/15143913/openapi.do](https://www.data.go.kr/data/15143913/openapi.do)
-2. Sign in or create a 공공데이터포털 account
-3. Click **활용신청** (Request API access) for service `MdclTursmService`
-4. After approval (~10 minutes), retrieve your key from My Page
+## Architecture
 
-Either key variant works — the server normalises both automatically at startup:
-
-| Key variant | Where to find it | Notes |
-|---|---|---|
-| 일반 인증키 **(Encoding)** | My Page → 발급받은 키 | URL-percent-encoded; the server decodes it once before use |
-| 일반 인증키 **(Decoding)** | My Page → 발급받은 키 | Raw base64; used as-is |
-
-### 2. Set the Replit Secret
-
-Open the **Secrets** tab in Replit and add:
-
-| Secret name | Value |
-|---|---|
-| `VISITKOREA_API_KEY` | Your API key (Encoding or Decoding variant — either works) |
-
-For local development, copy the canonical root `.env.example` to `.env`.
-
-### 3. Install dependencies
-
-Replit handles this automatically on first run. The root `pyproject.toml` and
-`uv.lock` are the dependency source of truth. To install manually with uv:
-
-```bash
-uv sync
+```mermaid
+flowchart LR
+    Client[MCP client] -->|Streamable HTTP /mcp| Server[FastMCP server]
+    Server --> Validation[Tool validation]
+    Validation --> Service[Medical tourism service]
+    Service --> ClientLayer[HTTP client, cache, limiter]
+    ClientLayer --> KTO[KTO MdclTursmService API]
+    Server -->|GET /healthz| Health[Liveness response]
 ```
 
-### 4. Run the server
+The Python server creates one HTTP client for its application lifespan. Successful tool calls return a list of dictionaries. Application and upstream failures are converted to typed, client safe errors.
+
+The cache stores up to 256 responses in memory. District code responses use a 24 hour time to live. Other responses use a 5 minute time to live. Cache and rate limit state are not shared between processes.
+
+## Repository Structure
+
+```text
+.
+├── src/mcp_server/          # Python MCP package
+│   ├── clients/             # KTO client, cache, and rate limiter
+│   ├── config/              # Runtime settings
+│   ├── errors/              # Application error types
+│   ├── observability/       # Logging configuration
+│   ├── services/            # Medical tourism operations
+│   ├── tools/               # MCP tool adapters and registry
+│   └── transports/          # Streamable HTTP entry point
+├── tests/                   # Unit, contract, integration, and security tests
+├── docs/                    # Architecture, capability, deployment, and security notes
+├── artifacts/
+│   ├── api-server/          # Express health API
+│   └── landing/             # React landing page
+├── lib/                     # Shared TypeScript packages
+├── mcp-server/main.py       # Compatibility entry point
+├── pyproject.toml           # Python package and console script
+└── pnpm-workspace.yaml      # TypeScript workspace boundaries
+```
+
+## Requirements
+
+### MCP service
+
+- Python 3.11 or later
+- [uv](https://docs.astral.sh/uv/)
+- An approved API key for the KTO `MdclTursmService`
+
+### Full workspace
+
+- Node.js
+- pnpm
+- The MCP service requirements above
+
+The repository does not pin minimum Node.js or pnpm versions. Use a current supported release that can install `pnpm-lock.yaml`.
+
+## Environment Variables
+
+### MCP service
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `VISITKOREA_API_KEY` | Yes | None | Encoded or decoded data.go.kr service key |
+| `PORT` | No | `8000` | HTTP listener port |
+| `MCP_ALLOWED_HOSTS` | No | Localhost entries | Comma separated hosts accepted by transport validation |
+| `MCP_ALLOWED_ORIGINS` | No | Localhost entries | Comma separated browser origins accepted by transport validation |
+| `REPLIT_DOMAINS` | No | None | Deployment host fallback when `MCP_ALLOWED_HOSTS` is unset |
+
+### TypeScript workspace
+
+| Variable | Component | Required | Purpose |
+| --- | --- | --- | --- |
+| `PORT` | API server | Yes | Listener port |
+| `PORT` | Landing page | Yes | Vite development and build configuration |
+| `NODE_ENV` | API server, landing page | No | Development or production behavior |
+| `LOG_LEVEL` | API server | No | Pino log level, default `info` |
+| `BASE_PATH` | Landing page | Yes | Vite base path, such as `/` |
+| `DATABASE_URL` | Shared database package | When used | PostgreSQL connection string |
+| `REPLIT_DOMAINS` | Landing page | No | Deployment domain metadata |
+| `REPL_ID` | Landing page | No | Enables development platform plugins when present |
+
+The MCP service does not use a database. `DATABASE_URL` applies only when the shared database package is imported by a TypeScript application.
+
+## Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/leejaew/visitkorea-medicaltourism-mcp.git
+cd visitkorea-medicaltourism-mcp
+```
+
+Install the Python project:
+
+```bash
+uv sync --frozen
+```
+
+Install the TypeScript workspace only if you need the landing page, API server, or shared packages:
+
+```bash
+pnpm install --frozen-lockfile
+```
+
+## Configuration
+
+1. Request access to service `15143913` on the [Korea Public Data Portal](https://www.data.go.kr/data/15143913/openapi.do).
+2. Copy the environment template.
+3. Replace the placeholder with the issued service key.
+
+```bash
+cp .env.example .env
+```
+
+Both the encoded and decoded key variants issued by data.go.kr are accepted. The server normalizes the value at startup.
+
+Never commit `.env` or a real service key.
+
+## Local Development
+
+Start the MCP service:
 
 ```bash
 uv run visitkorea-mcp
-# compatibility: python mcp-server/main.py
 ```
 
-The server starts on the `PORT` environment variable (default `8000`).
+Equivalent package entry points:
 
-| Endpoint | Description |
-|---|---|
-| `POST /mcp` | Streamable HTTP MCP endpoint (all tool calls) |
-| `GET /healthz` | Liveness probe — returns `{"status":"ok","server":"visitkorea-medicaltourism"}` |
+```bash
+uv run python -m mcp_server
+python mcp-server/main.py
+```
 
-## Connecting an AI Agent
+The compatibility script requires the Python dependencies to be installed in the active environment.
 
-### Connector JSON
+### MCP endpoints
 
-Paste this into your AI agent's custom connector settings:
+| Method and path | Purpose |
+| --- | --- |
+| `POST /mcp` | Streamable HTTP MCP traffic |
+| `GET /healthz` | Liveness response |
+
+The default local base URL is `http://localhost:8000`.
+
+### MCP client configuration
+
+Use the deployed HTTPS endpoint in any client that supports Streamable HTTP:
 
 ```json
 {
   "mcpServers": {
     "visitkorea-medicaltourism": {
       "type": "streamableHttp",
-      "url": "https://<your-replit-url>/mcp"
+      "url": "https://your-domain.example/mcp"
     }
   }
 }
 ```
 
-Replace `<your-replit-url>` with your deployed Replit project domain.
+This configuration does not add client authentication. Apply access controls at the deployment boundary if the service must not be public.
 
-### Manus AI
+### Supporting applications
 
-Go to **Settings → Connectors → Add Connectors → Custom MCP**, click **Import by JSON**, and paste the JSON above.
+Start the Express API:
 
-### Claude Desktop
-
-Add the JSON to your `claude_desktop_config.json` under the `"mcpServers"` key.
-
-## Tool Reference
-
-All tools follow the same call pattern — they accept a `lang_div_cd` and return a list of dicts. Pagination defaults to 10 results per page starting at page 1.
-
-### Recommended workflows
-
-| Goal | Sequence |
-|---|---|
-| Search by region | `get_ldong_code` → `get_area_based_list` → `get_detail_common` / `get_detail_medical` |
-| Search near a location | `get_location_based_list` → `get_detail_common` / `get_detail_medical` |
-| Search by keyword | `search_medical_by_keyword` → `get_detail_common` / `get_detail_medical` |
-| Build a local database | `get_medical_sync_list` |
-
----
-
-### Tool 1 — `get_ldong_code`
-
-Retrieve legal administrative district (법정동) codes for province/city and district filtering.
-
-**Upstream endpoint:** `GET /ldongCode`  
-**Cache TTL:** 24 hours (codes are static reference data)
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `lang_div_cd` | string | **Required** | Language code: `ENG`, `JPN`, `CHS`, `KOR`, or `RUS` |
-| `l_dong_regn_cd` | string | Optional | Province code — e.g. `11` = Seoul. Omit to list all provinces. |
-| `l_dong_list_yn` | string | Optional | `N` = 시도/시군구 codes only (default); `Y` = full 법정동 list |
-| `num_of_rows` | int | Optional | Results per page — clamped to 1–100 (default 10) |
-| `page_no` | int | Optional | Page number (default 1) |
-
-**Example response item:**
-```json
-{ "rnum": 1, "code": "11", "name": "Seoul" }
+```bash
+PORT=8080 pnpm --filter @workspace/api-server run dev
 ```
 
----
+Start the landing page:
 
-### Tool 2 — `get_area_based_list`
+```bash
+PORT=5173 BASE_PATH=/ pnpm --filter @workspace/landing run dev
+```
 
-List medical tourism facilities filtered by administrative region.
+The Express artifact exposes `GET /api/healthz`.
 
-**Upstream endpoint:** `GET /areaBasedList`  
-**Cache TTL:** 5 minutes
+## MCP Tool Reference
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `lang_div_cd` | string | **Required** | Language code |
-| `arrange` | string | Optional | Sort order: `A`=title, `C`=modified, `D`=created, `O`/`Q`/`R`=image-only variants |
-| `l_dong_regn_cd` | string | Optional | Province code from `get_ldong_code` |
-| `l_dong_signgu_cd` | string | Optional | District code (requires `l_dong_regn_cd`) |
-| `mdfcn_dt` | string | Optional | Modified-since date filter in **YYYYMMDD** format |
-| `num_of_rows` | int | Optional | Results per page (default 10) |
-| `page_no` | int | Optional | Page number (default 1) |
+All tools require `lang_div_cd`. List and search tools default to page 1 with 10 results. Detail tools require a `content_id` returned by a list or search operation.
 
----
+| Tool | Upstream operation | Purpose | Cache |
+| --- | --- | --- | --- |
+| `get_ldong_code` | `ldongCode` | List province and district codes | 24 hours |
+| `get_area_based_list` | `areaBasedList` | Search by administrative area | 5 minutes |
+| `get_location_based_list` | `locationBasedList` | Search within 1 to 20,000 metres of WGS84 coordinates | 5 minutes |
+| `search_medical_by_keyword` | `searchKeyword` | Search upstream facility records by keyword | 5 minutes |
+| `get_medical_sync_list` | `mdclTursmSyncList` | Page through synchronization records | 5 minutes |
+| `get_detail_common` | `detailCommon` | Retrieve address, contact, location, and overview fields | 5 minutes |
+| `get_detail_intro` | `detailIntro` | Retrieve hours, parking, capacity, and related fields | 5 minutes |
+| `get_detail_medical` | `detailMdclTursm` | Retrieve specialties, service languages, and reservation fields | 5 minutes |
 
-### Tool 3 — `get_location_based_list`
-
-Find medical tourism facilities within a GPS radius. Coordinates must be within South Korea's WGS84 bounding box (longitude 124–132, latitude 33–39).
-
-**Upstream endpoint:** `GET /locationBasedList`  
-**Cache TTL:** 5 minutes
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `lang_div_cd` | string | **Required** | Language code |
-| `map_x` | float | **Required** | Longitude in WGS84 — e.g. `126.9780` (Seoul) |
-| `map_y` | float | **Required** | Latitude in WGS84 — e.g. `37.5665` (Seoul) |
-| `radius` | int | **Required** | Search radius in metres — 1 to 20,000 |
-| `arrange` | string | Optional | Sort: `E`=distance asc, `S`=distance desc+image; or standard A/C/D/O/Q/R |
-| `l_dong_regn_cd` | string | Optional | Optional province filter |
-| `l_dong_signgu_cd` | string | Optional | Optional district filter (requires `l_dong_regn_cd`) |
-| `mdfcn_dt` | string | Optional | Modified-since date filter in **YYYYMMDD** format |
-| `num_of_rows` | int | Optional | Results per page (default 10) |
-| `page_no` | int | Optional | Page number (default 1) |
-
-Response items include a `dist` field (distance in metres from the provided coordinates).
-
----
-
-### Tool 4 — `search_medical_by_keyword`
-
-Full-text keyword search across all medical tourism facilities.
-
-**Upstream endpoint:** `GET /searchKeyword`  
-**Cache TTL:** 5 minutes
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `lang_div_cd` | string | **Required** | Language code |
-| `keyword` | string | **Required** | Search term (automatically URL-encoded) |
-| `arrange` | string | Optional | Sort order (A/C/D/O/Q/R) |
-| `l_dong_regn_cd` | string | Optional | Province filter |
-| `l_dong_signgu_cd` | string | Optional | District filter (requires `l_dong_regn_cd`) |
-| `num_of_rows` | int | Optional | Results per page (default 10) |
-| `page_no` | int | Optional | Page number (default 1) |
-
----
-
-### Tool 5 — `get_medical_sync_list`
-
-Retrieve the full medical tourism synchronisation list. Use for building or refreshing a local database of all facilities.
-
-**Upstream endpoint:** `GET /mdclTursmSyncList`  
-**Cache TTL:** 5 minutes
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `lang_div_cd` | string | **Required** | Language code |
-| `showflag` | string | Optional | `1` = publicly visible only; `0` = hidden only |
-| `old_content_id` | string | Optional | Last known content ID — fetch only newer records |
-| `mdfcn_dt` | string | Optional | Modified-since date in **YYYYMMDD** format |
-| `num_of_rows` | int | Optional | Results per page (default 10) |
-| `page_no` | int | Optional | Page number (default 1) |
-
----
-
-### Tool 6 — `get_detail_common`
-
-Fetch full common detail for a specific facility: title, address, GPS, phone, homepage, and overview text.
-
-**Upstream endpoint:** `GET /detailCommon`  
-**Cache TTL:** 5 minutes
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `lang_div_cd` | string | **Required** | Language code |
-| `content_id` | string | **Required** | Content ID returned by any list or search tool |
-| `num_of_rows` | int | Optional | Results per page (default 1) |
-| `page_no` | int | Optional | Page number (default 1) |
-
-**Key response fields:** `contentId`, `title`, `overview`, `homepage`, `tel`, `baseAddr`, `detailAddr`, `zipCd`, `mapX`, `mapY`, `orgImage`, `thumbImage`, `lDongRegnCd`, `lDongSignguCd`, `regDt`, `mdfcnDt`
-
-> **Note:** The upstream API returns GPS fields as lowercase `mapx`/`mapy`. This tool normalises them to `mapX`/`mapY` for consistency with the list-endpoint field names.
-
----
-
-### Tool 7 — `get_detail_intro`
-
-Fetch type-specific introductory details: opening hours, rest days, parking, capacity, and age suitability.
-
-**Upstream endpoint:** `GET /detailIntro`  
-**Cache TTL:** 5 minutes
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `lang_div_cd` | string | **Required** | Language code |
-| `content_id` | string | **Required** | Content ID |
-| `num_of_rows` | int | Optional | Results per page (default 1) |
-| `page_no` | int | Optional | Page number (default 1) |
-
----
-
-### Tool 8 — `get_detail_medical`
-
-Fetch medical-specific details: specialties, foreign languages served, reservation status, and SNS info.
-
-**Upstream endpoint:** `GET /detailMdclTursm`  
-**Cache TTL:** 5 minutes
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `lang_div_cd` | string | **Required** | Language code |
-| `content_id` | string | **Required** | Content ID |
-| `num_of_rows` | int | Optional | Results per page (default 1) |
-| `page_no` | int | Optional | Page number (default 1) |
-
-**Key response fields:** `mainMdclSubjInfo` (main specialties), `svcLangInfo` (supported languages), `onlineRsvtPsblYn` (online reservation available)
-
----
-
-## Language Code Reference
+### Language codes
 
 | Code | Language |
-|---|---|
+| --- | --- |
 | `ENG` | English |
-| `JPN` | Japanese (日本語) |
-| `CHS` | Simplified Chinese (简体中文) |
-| `KOR` | Korean (한국어) |
-| `RUS` | Russian (Русский) |
+| `JPN` | Japanese |
+| `CHS` | Simplified Chinese |
+| `KOR` | Korean |
+| `RUS` | Russian |
 
-## Error Handling
+Tool docstrings provide the complete parameter schemas to connected MCP clients.
 
-### Upstream API errors
+## Build and Packaging
 
-Tool functions surface data.go.kr failures as client-safe typed application
-errors. The API key is never included in error messages or logs.
+Build Python wheel and source distributions:
 
-| Upstream code | Exception type | Meaning |
-|---|---|---|
-| `00` / `0000` | — | Success; returns results |
-| `03` | — | No data; returns `[]` |
-| `10` | `UpstreamError` | Invalid request parameter |
-| `11` | `UpstreamError` | Missing required parameter |
-| `22` | `QuotaError` | Upstream daily quota exceeded |
-| `30` | `AuthError` | Service key not registered |
-| `31` | `AuthError` | Service key expired |
-| other | `UpstreamError` | Unexpected upstream error |
-
-### Local rate limiter
-
-The server enforces a **10 calls/minute** limit (burst of 5) on requests that reach the upstream API. Cache hits bypass the limiter entirely. When the limit is exceeded, the tool returns immediately with:
-
-```
-Rate limit exceeded. Retry after Xs. (Limit: 10 calls/min, burst 5)
+```bash
+uv build
 ```
 
-This is a fast-fail design — no blocking sleep — so the agent receives the retry-after guidance instantly and can back off gracefully.
+Python packages are written to `dist/`.
 
-## Project Structure
+Typecheck and build every TypeScript workspace package that defines a build script:
 
-```
-visitkorea-medicaltourism-mcp/
-├── src/mcp_server/               # packaged MCP application
-├── .env.example                  # canonical local environment template
-│   ├── tools/                    # validation adapters and registration
-│   ├── services/                 # plain-Python application services
-│   ├── clients/                  # upstream HTTP, cache, and limiter
-│   └── transports/               # Streamable HTTP boundary
-├── tests/                        # unit, integration, contract, and security tests
-├── mcp-server/main.py            # compatibility shim only
-└── artifacts/
-    ├── landing/                 # Developer landing page (React + Vite)
-    └── api-server/              # Express proxy (CORS, /api/healthz)
+```bash
+PORT=5173 BASE_PATH=/ pnpm run build
 ```
 
-### `src/mcp_server/` module responsibilities
+Relevant output directories:
 
-Each module has a single, clearly bounded responsibility:
+| Component | Output |
+| --- | --- |
+| Python package | `dist/` |
+| Express API | `artifacts/api-server/dist/` |
+| Landing page | `artifacts/landing/dist/` |
 
-| Module | Responsibility |
-|---|---|---|
-| `config/settings.py` | Pure settings loader and host/origin policy |
-| `clients/` | KTO HTTP lifecycle, retries, cache, and rate limiting |
-| `services/medical_tourism.py` | MCP-independent application operations |
-| `tools/` | Thin adapters and deterministic registration |
-| `server.py` | FastMCP factory, lifespan, shutdown, and `/healthz` |
+## Testing
 
-## Performance
-
-| Scenario | Typical latency |
-|---|---|
-| Cache hit | < 5 ms |
-| Cache miss — first `get_ldong_code` call | ~600 ms (upstream API) |
-| Subsequent `get_ldong_code` calls (24h TTL) | < 5 ms |
-| Cache miss — other tools | ~600 ms |
-| Subsequent calls within 5 min TTL | < 5 ms |
-
-The httpx client maintains a persistent TCP connection pool (`max_connections=10`, `max_keepalive_connections=5`) to avoid TLS handshake overhead on every request. Total request timeout is 15 s; connection timeout is 5 s.
-
-## Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `VISITKOREA_API_KEY` | Yes | API key from data.go.kr (Encoding or Decoding variant) |
-| `PORT` | No | Port for uvicorn to listen on (default `8000`) |
-| `MCP_ALLOWED_HOSTS` | No | Comma-separated public hostnames for Streamable HTTP Host validation; `REPLIT_DOMAINS` is used automatically when available |
-| `MCP_ALLOWED_ORIGINS` | No | Optional comma-separated browser origins for Streamable HTTP Origin validation |
-
-## Development and testing
-
-Run the focused standard-library test suite from the repository root:
+Run the Python test suite:
 
 ```bash
 uv run --frozen python -m unittest discover -s tests -p 'test_*.py'
 ```
 
-The server validates configuration when `create_server()` runs, not when the
-package is imported. This keeps tooling and tests importable without a secret.
+The suite covers unit behavior, endpoint contracts, ASGI integration, registration, and security boundaries. Tests use mocked upstream responses and do not require a live service key unless a test explicitly performs a live API check.
+
+## Code Quality
+
+Typecheck the TypeScript workspace:
+
+```bash
+pnpm run typecheck
+```
+
+The repository does not currently declare a Python formatter, linter, static type checker, JavaScript test runner, or continuous integration workflow.
+
+## External Service
+
+The MCP service calls:
+
+```text
+https://apis.data.go.kr/B551011/MdclTursmService
+```
+
+Requests include the server side `VISITKOREA_API_KEY`, fixed mobile application metadata, pagination, and tool specific parameters. Upstream quotas, approval status, availability, content freshness, and response semantics remain controlled by data.go.kr and the Korea Tourism Organization.
+
+## Security Notes
+
+- Store `VISITKOREA_API_KEY` in environment secrets. Do not place it in source, examples, logs, or client configuration.
+- The key is excluded from cache keys and application errors.
+- HTTP client logging is restricted to reduce the risk of query credentials reaching logs.
+- TLS certificate verification remains enabled.
+- Host and Origin allowlists protect transport validation. They do not authenticate users.
+- The MCP endpoint has no application level user authentication or authorization.
+- Review [`docs/security.md`](docs/security.md) before exposing the service publicly.
+
+## Deployment
+
+The repository includes Replit artifact configuration for two services:
+
+| Service | Build | Start | Port | Health |
+| --- | --- | --- | --- | --- |
+| MCP server | Managed dependency restore | `python mcp-server/main.py` | `8000` | `/healthz` |
+| Express API | `pnpm --filter @workspace/api-server run build` | `node --enable-source-maps artifacts/api-server/dist/index.mjs` | `8080` | `/api/healthz` |
+
+Set `VISITKOREA_API_KEY` as a deployment secret. Expose `/mcp` through HTTPS and configure `MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS` for the public domain.
+
+For a portable Python deployment, install and start the locked package directly:
+
+```bash
+uv sync --frozen
+uv run --frozen visitkorea-mcp
+```
+
+The landing page builds as static Vite output. The repository does not include deployment configuration for other hosting providers or container platforms.
+
+See [`docs/deployment.md`](docs/deployment.md) for the service level deployment contract.
+
+## Troubleshooting
+
+### `VISITKOREA_API_KEY is not set`
+
+Create `.env` from `.env.example` for local development, or configure the variable through the deployment secret manager.
+
+### Host or Origin validation rejects a public request
+
+Add the deployment hostname to `MCP_ALLOWED_HOSTS` and browser origins to `MCP_ALLOWED_ORIGINS`. Use comma separated values without credentials or paths.
+
+### Upstream authentication or quota errors
+
+Confirm that the data.go.kr key is approved for service `15143913`, has not expired, and has remaining quota.
+
+### Local rate limit errors
+
+Retry after the interval reported by the tool. The limiter permits 10 upstream calls per minute with a burst capacity of 5. Cache hits do not consume limiter capacity.
+
+## Known Limitations
+
+- Cache and rate limit state are in memory and scoped to one process.
+- The service depends on upstream availability, quota, approval, and data quality.
+- The MCP endpoint does not provide application level authentication.
+- Only Streamable HTTP transport is configured.
+- Medical tourism records are informational directory data. They are not medical advice or a guarantee of provider quality, availability, or suitability.
+- No Docker, Kubernetes, or provider neutral deployment configuration is included.
 
 ## Contributing
 
-Contributions are welcome. Please open an issue before submitting a pull request. Ensure all changes are tested against the live API and that no API keys are committed to the repository.
+Before submitting a change:
+
+1. Run the Python test suite.
+2. Run `pnpm run typecheck` for TypeScript changes.
+3. Build the affected package or application.
+4. Keep service keys and local environment files out of Git.
+
+Use live API checks only when you have an approved key and the change requires upstream verification.
 
 ## License
 
-MIT License
+The source code is available under the [MIT License](LICENSE).
 
-Tourism data provided by the Korea Tourism Organization (KTO) via the 공공데이터포털 open API platform (`data.go.kr`). Data usage is subject to KTO terms — attribution is required for `Type1` content; `Type3` content additionally prohibits modification.
+Tourism data is provided by the Korea Tourism Organization through the Korea Public Data Portal. Data use remains subject to the source terms. KTO `Type1` content requires attribution. `Type3` content also prohibits modification.
